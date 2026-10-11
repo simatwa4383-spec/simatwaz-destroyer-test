@@ -1,126 +1,101 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Simatwaz Destroyer — Deriv Pair Test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simatwaz Destroyer — Step Index Feed Test</title>
 <style>
-:root{color-scheme:dark}body{font:16px system-ui,sans-serif;background:#101827;color:#edf2f7;margin:0;padding:18px}
-main{max-width:760px;margin:auto}.card{background:#1b2638;border:1px solid #344258;border-radius:14px;padding:16px;margin:12px 0}
-h1{font-size:1.45rem;margin:0 0 8px}.muted{color:#b7c4d8;font-size:.92rem}
-label{display:block;margin:12px 0 5px}input,select{box-sizing:border-box;width:100%;padding:11px;border-radius:8px;border:1px solid #53627a;background:#0f1724;color:#fff}
-button{border:0;border-radius:9px;padding:12px 14px;margin:8px 6px 0 0;font-weight:700;cursor:pointer;background:#60a5fa;color:#08111f}button.secondary{background:#344258;color:#fff}button.danger{background:#fb7185;color:#26070d}button:disabled{opacity:.45;cursor:not-allowed}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1220;border-radius:8px;padding:12px;min-height:90px}
-.warn{border-left:4px solid #fbbf24;padding-left:12px}.small{font-size:.85rem}.pill{display:inline-block;background:#26364c;padding:4px 8px;border-radius:99px;font-size:.8rem}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;padding:18px;background:#f5f7fb;color:#172033}
+h1{font-size:1.45rem}p{line-height:1.45}.note{background:#fff8dc;border:1px solid #ead58a;border-radius:10px;padding:12px}
+.panel{background:#fff;border:1px solid #d9dfeb;border-radius:12px;padding:14px;margin:14px 0}
+button{padding:12px 16px;border:0;border-radius:9px;background:#155eef;color:white;font-size:1rem;font-weight:650}
+.status{font-weight:700;margin:8px 0}.pending{color:#8a6200}.ok{color:#137333}.bad{color:#b3261e}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f3f7;padding:10px;border-radius:8px;min-height:48px}
+small{color:#4b5568}
 </style>
 </head>
-<body><main>
-<div class="card">
-  <span class="pill">DEMO-FIRST • MANUAL PAIR TEST</span>
-  <h1>Simatwaz Destroyer</h1>
-  <p class="muted">Prototype for the official Deriv API. One button click requests a Higher (CALL) and Lower (PUT) contract and sends both buy requests back-to-back. It does not guarantee exchange-level simultaneous execution.</p>
-</div>
-<div class="card warn">
-  <strong>Safety first</strong>
-  <p class="small">Use a DEMO API token with trade permission first. Never paste your token into chat or share this HTML with a token saved inside it. This prototype does not auto-repeat and does not guarantee profitability. Opposite contracts can both lose money after payout costs.</p>
-</div>
-<div class="card">
-  <h2>Connection</h2>
-  <label for="appid">Deriv App ID</label>
-  <input id="appid" value="1089" inputmode="numeric" autocomplete="off">
-  <p class="muted small">1089 is a testing app ID; register your own app ID for regular use via Deriv's developer portal.</p>
-  <label for="token">Deriv API token (DEMO account only)</label>
-  <input id="token" type="password" placeholder="Paste demo token here (not stored)" autocomplete="off">
-  <div>
-    <button id="connect">Connect demo account</button>
-    <button id="disconnect" class="secondary" disabled>Disconnect</button>
-  </div>
-  <p id="account" class="muted">Not connected</p>
-</div>
-<div class="card">
-  <h2>Pair settings</h2>
-  <div class="row">
-    <div><label for="symbol">Market</label>
-      <select id="symbol"><option value="R_100">Volatility 100 Index</option><option value="R_10">Volatility 10 Index</option></select>
-    </div>
-    <div><label for="duration">Duration (ticks)</label><input id="duration" type="number" value="5" min="1" max="100" step="1"></div>
-  </div>
-  <div class="row">
-    <div><label for="stake">Stake per contract (USD)</label><input id="stake" type="number" value="1" min="0.35" step="0.01"></div>
-    <div><label for="target">Session take-profit (USD)</label><input id="target" type="number" value="2" min="0.01" step="0.01"></div>
-  </div>
-  <p class="muted small">Take-profit is a session stop: once the tracked closed-contract profit reaches the target, the buy button is disabled. The app does not close contracts early.</p>
-  <label><input id="confirm" type="checkbox" style="width:auto"> I understand each click can spend up to the combined cost of two contracts and I am using DEMO funds.</label>
-  <button id="buy" disabled>Buy one Higher + Lower pair</button>
-  <button id="reset" class="secondary">Reset session counter</button>
-</div>
-<div class="card">
-  <h2>Activity log</h2><div id="log" class="status">Ready. Connect using a demo token to begin.</div>
-  <p id="profit" class="muted">Tracked session profit: $0.00</p>
-</div>
-<p class="muted small">Official documentation: <a href="https://developers.deriv.com/docs/trading/proposal/" target="_blank" rel="noopener">Proposal</a> · <a href="https://developers.deriv.com/docs/trading/buy/" target="_blank" rel="noopener">Buy</a> · <a href="https://api.deriv.com/" target="_blank" rel="noopener">Deriv API portal</a></p>
-</main>
+<body>
+<h1>Simatwaz Destroyer — Step Index Feed Test</h1>
+<p>This checks whether the new public Deriv WebSocket can subscribe to public price updates for a Step Index symbol. It does not log in, access your account, or place trades.</p>
+<div class="note"><b>Safety:</b> No API token is needed. This is a public market-data test only, not a trading bot. Deriv symbol availability may vary; if the chosen symbol is not supported on this endpoint, the test will show the server response.</div>
+<button id="run">Connect and test Step Index feed</button>
+<section class="panel">
+<h2>Connection and subscription</h2>
+<div id="status" class="status pending">Not tested yet</div>
+<pre id="detail">Tap the button to start the test.</pre>
+</section>
+<section class="panel">
+<h2>Latest price updates</h2>
+<div id="price" class="status">Waiting for a price update…</div>
+<pre id="feed">No market data received yet.</pre>
+</section>
+<section class="panel">
+<h2>How to interpret it</h2>
+<p><b>Price updates received:</b> the public endpoint accepted the subscription and is sending data for the selected symbol.</p>
+<p><b>Connected but subscription rejected:</b> the WebSocket works, but this symbol or request format may not be supported on this endpoint.</p>
+<p><b>Connection failed:</b> the endpoint could not be reached during this attempt.</p>
+<p>This test does not prove that authenticated trading or simultaneous two-contract execution will work.</p>
+</section>
 <script>
-(() => {
- const $ = id => document.getElementById(id);
- let ws=null, req=0, pending=new Map(), connected=false, buying=false, sessionProfit=0, tracked=new Set(), contracts=new Set();
- const log = s => { const el=$('log'); el.textContent = new Date().toLocaleTimeString()+' — '+s+'\\n'+el.textContent; };
- function send(obj){ if(!ws || ws.readyState!==WebSocket.OPEN) throw new Error('Not connected'); const id=++req; obj.req_id=id; return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});ws.send(JSON.stringify(obj));setTimeout(()=>{if(pending.has(id)){pending.delete(id);reject(new Error('Request timed out'));}},15000);}); }
- function updateButtons(){ $('buy').disabled=!(connected && $('confirm').checked && !buying && sessionProfit < Number($('target').value)); $('disconnect').disabled=!connected; $('connect').disabled=connected; }
- function setProfit(p){ sessionProfit += p; $('profit').textContent='Tracked session profit: $'+sessionProfit.toFixed(2); if(sessionProfit>=Number($('target').value)){log('Take-profit reached; new purchases paused.');} updateButtons(); }
- $('connect').onclick=async()=>{
-   const app=$('appid').value.trim(), token=$('token').value.trim();
-   if(!/^\d+$/.test(app)||!token){alert('Enter a valid App ID and demo API token.');return;}
-   try{
-    ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id='+encodeURIComponent(app));
-    ws.onmessage=async ev=>{
-      let data;try{data=JSON.parse(ev.data)}catch{return}
-      if(data.req_id && pending.has(data.req_id)){const p=pending.get(data.req_id);pending.delete(data.req_id);if(data.error)p.reject(new Error(data.error.message));else p.resolve(data);return;}
-      if(data.msg_type==='proposal_open_contract' && data.proposal_open_contract){
-       const c=data.proposal_open_contract;
-       if(c.is_sold && c.contract_id && !tracked.has(c.contract_id)){tracked.add(c.contract_id);const pr=Number(c.profit||0);setProfit(pr);log('Contract '+c.contract_id+' closed; profit '+(pr>=0?'+':'')+'$'+pr.toFixed(2));}
+let ws = null, timer = null, gotTick = false, messages = 0;
+function showStatus(s, cls, detail) {
+  const el = document.getElementById('status');
+  el.textContent = s; el.className = 'status ' + cls;
+  document.getElementById('detail').textContent = detail;
+}
+function stop() { clearTimeout(timer); try { if (ws && ws.readyState < 2) ws.close(); } catch(e) {} }
+document.getElementById('run').addEventListener('click', () => {
+  stop(); gotTick = false; messages = 0;
+  document.getElementById('price').textContent = 'Waiting for a price update…';
+  document.getElementById('feed').textContent = 'No market data received yet.';
+  showStatus('Connecting…','pending','Opening public Deriv WebSocket.');
+  try {
+    ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
+    timer = setTimeout(() => {
+      if (!gotTick) {
+        showStatus('CONNECTED, BUT NO PRICE UPDATE CONFIRMED','bad',
+          'The socket opened but no valid price update was detected within 15 seconds. The endpoint may require a different public subscription format or symbol.');
+      }
+      stop();
+    },15000);
+    ws.onopen = () => {
+      showStatus('CONNECTED — SENDING SUBSCRIPTION','pending',
+        'WebSocket opened. Sending a public tick subscription for symbol: stpRNG.');
+      // The modern public options endpoint may use a different schema than the legacy API.
+      // This is a diagnostic request; server errors are displayed instead of assumed successful.
+      ws.send(JSON.stringify({ticks:'stpRNG',subscribe:1}));
+    };
+    ws.onmessage = (ev) => {
+      messages++;
+      const raw = String(ev.data);
+      document.getElementById('feed').textContent = raw.slice(0,2500);
+      let data;
+      try { data = JSON.parse(raw); } catch(e) {}
+      if (data && data.error) {
+        showStatus('CONNECTED, SUBSCRIPTION RESPONSE IS AN ERROR','bad',
+          'The socket connected, but the server rejected the request: ' + (data.error.message || raw).slice(0,1500));
+        return;
+      }
+      if (data && data.tick && data.tick.quote !== undefined) {
+        gotTick = true;
+        document.getElementById('price').textContent = 'Latest quote: ' + data.tick.quote;
+        showStatus('CONNECTED — PRICE UPDATE RECEIVED','ok',
+          'Public price updates are arriving for stpRNG. Messages received: ' + messages + '. No account was accessed and no trade was placed.');
+      } else if (!gotTick) {
+        showStatus('CONNECTED — SERVER MESSAGE RECEIVED','pending',
+          'The server replied, but the message was not recognized as a legacy-style tick. Inspect the response below; this may mean the endpoint uses a different subscription schema.');
       }
     };
-    await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=()=>reject(new Error('WebSocket connection failed'));});
-    const auth=await send({authorize:token});
-    connected=true;$('account').textContent='Connected: '+(auth.authorize.loginid||'account')+' · Balance '+(auth.authorize.currency||'')+' '+(auth.authorize.balance??'');$('token').value='';
-    log('Connected. Verify this is a DEMO account before trading.');updateButtons();
-   }catch(e){log('Connection error: '+e.message);if(ws){try{ws.close()}catch{}}ws=null;connected=false;updateButtons();}
- };
- $('disconnect').onclick=()=>{if(ws)ws.close();ws=null;connected=false;buying=false;$('account').textContent='Disconnected';log('Disconnected.');updateButtons();};
- $('confirm').onchange=updateButtons;
- $('target').oninput=updateButtons;
- $('reset').onclick=()=>{if(buying)return;sessionProfit=0;tracked.clear();$('profit').textContent='Tracked session profit: $0.00';log('Session counter reset. This does not change account balance.');updateButtons();};
- $('buy').onclick=async()=>{
-  if(!connected||buying||!$('confirm').checked)return;
-  const stake=Number($('stake').value), duration=Number($('duration').value), symbol=$('symbol').value;
-  if(!Number.isFinite(stake)||stake<0.35||!Number.isInteger(duration)||duration<1||duration>100){alert('Check stake and duration.');return;}
-  buying=true;updateButtons();
-  try{
-    log('Requesting Higher and Lower quotes…');
-    const common={proposal:1,amount:stake,basis:'stake',contract_type:'CALL',currency:'USD',duration,duration_unit:'t',underlying_symbol:symbol};
-    const [higherQ,lowerQ]=await Promise.all([
-      send({...common,contract_type:'CALL'}),
-      send({...common,contract_type:'PUT'})
-    ]);
-    const h=higherQ.proposal, l=lowerQ.proposal;
-    if(!h||!l)throw new Error('Could not obtain both quotes.');
-    log('Quotes received. Sending both purchase requests back-to-back…');
-    const outcomes=await Promise.allSettled([
-      send({buy:h.id,price:Number(h.ask_price),subscribe:1}),
-      send({buy:l.id,price:Number(l.ask_price),subscribe:1})
-    ]);
-    outcomes.forEach((o,i)=>{
-      const name=i===0?'HIGHER/CALL':'LOWER/PUT';
-      if(o.status==='fulfilled'){
-        const b=o.value.buy||{};log(name+' purchase accepted. Contract ID: '+(b.contract_id??'unknown')+'; buy price: $'+Number(b.buy_price||0).toFixed(2));
-        if(b.contract_id){contracts.add(b.contract_id);send({proposal_open_contract:1,contract_id:b.contract_id,subscribe:1}).catch(e=>log('Status subscription issue: '+e.message));}
-      } else log(name+' purchase FAILED: '+o.reason.message);
-    });
-    if(outcomes.every(o=>o.status==='rejected'))log('Neither contract was confirmed purchased. Check errors above.');
-  }catch(e){log('Pair error: '+e.message);}
-  finally{buying=false;updateButtons();}
- };
- window.addEventListener('beforeunload',()=>{if(ws)ws.close()});
-})();
+    ws.onerror = () => {
+      showStatus('WEBSOCKET ERROR','bad','The browser reported an error. Browser scripts cannot reveal the detailed handshake cause.');
+    };
+    ws.onclose = (ev) => {
+      if (!gotTick && document.getElementById('status').textContent.indexOf('ERROR') < 0) {
+        showStatus('CONNECTION CLOSED','bad','Connection closed before a price update was confirmed. Close code: ' + ev.code + (ev.reason ? '; reason: ' + ev.reason : ''));
+      }
+    };
+  } catch(e) { showStatus('COULD NOT START','bad',String(e)); }
+});
 </script>
-</body></html>
+</body>
+</html>
