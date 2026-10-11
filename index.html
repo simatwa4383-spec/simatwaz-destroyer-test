@@ -2,83 +2,96 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Simatwaz Destroyer — Connection Diagnostic</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simatwaz Destroyer — WebSocket Diagnostic</title>
 <style>
-body{font:16px Arial,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;line-height:1.5;color:#17202a}
-button{font-size:16px;padding:12px 16px;border:0;border-radius:8px;background:#1769aa;color:white;margin:4px 4px 4px 0}
-.card{border:1px solid #ddd;border-radius:10px;padding:16px;margin:14px 0}
-#status{font-weight:bold;overflow-wrap:anywhere}
-small{color:#555}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;padding:18px;background:#f5f7fb;color:#172033}
+  h1{font-size:1.45rem;margin-bottom:6px}
+  p{line-height:1.45}
+  .note{background:#fff8dc;border:1px solid #ead58a;border-radius:10px;padding:12px}
+  .panel{background:white;border:1px solid #d9dfeb;border-radius:12px;padding:14px;margin:14px 0}
+  .status{font-weight:700;margin:8px 0}
+  .pending{color:#8a6200}.ok{color:#137333}.bad{color:#b3261e}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f3f7;padding:10px;border-radius:8px;min-height:42px}
+  button{padding:12px 16px;border:0;border-radius:9px;background:#155eef;color:white;font-size:1rem;font-weight:650}
+  small{color:#4b5568}
 </style>
 </head>
 <body>
-<h2>Simatwaz Destroyer</h2>
-<p>Connection diagnostic only. This page does not log in, request an API token, or place trades.</p>
-<div class="card">
-  <p><b>Endpoint:</b> <code>wss://ws.derivws.com/websockets/v3?app_id=1089</code></p>
-  <button id="test">Run connection test</button>
-  <button id="stop" style="background:#555">Stop test</button>
-  <p id="status">Ready. Tap “Run connection test”.</p>
-  <p id="details"><small>No connection attempt has been made yet.</small></p>
-</div>
-<div class="card">
-  <b>How to read the result</b>
-  <ul>
-    <li><b>Connected / ping reply:</b> the browser reached Deriv's WebSocket.</li>
-    <li><b>Handshake error or timeout:</b> the browser could not complete the WebSocket connection; the page cannot reveal the exact cause.</li>
-    <li><b>API error:</b> the server responded but rejected the request.</li>
-  </ul>
-</div>
-<p><small>Uses Deriv's documented test app ID 1089. No account credentials or trading permissions are needed.</small></p>
+<h1>Simatwaz Destroyer — Connection Diagnostic</h1>
+<p>This page checks whether this browser can establish WebSocket connections to two Deriv endpoints. It does <b>not</b> log in, request account details, or place trades.</p>
+<div class="note"><b>Safety:</b> Do not enter or paste an API token on this page. The newer public endpoint is read-only market data; it cannot place trades.</div>
+<button id="run">Test both connections again</button>
+
+<section class="panel">
+  <h2>Test A — Legacy Deriv API</h2>
+  <small>wss://ws.derivws.com/websockets/v3?app_id=1089</small>
+  <div id="a-status" class="status pending">Not tested yet</div>
+  <pre id="a-detail">Tap “Test both connections again”.</pre>
+</section>
+
+<section class="panel">
+  <h2>Test B — New public market-data endpoint</h2>
+  <small>wss://api.derivws.com/trading/v1/options/ws/public</small>
+  <div id="b-status" class="status pending">Not tested yet</div>
+  <pre id="b-detail">Tap “Test both connections again”.</pre>
+</section>
+
+<section class="panel">
+  <h2>How to read the result</h2>
+  <p><b>Connected</b> means the browser completed the WebSocket handshake with that endpoint. It does not prove trading will work.</p>
+  <p><b>Handshake error / timeout</b> means this test could not connect. It does not by itself identify whether the cause is the browser, network filtering, server policy, or another issue.</p>
+  <p>If Test B connects but Test A fails, we have evidence the phone can reach at least one Deriv WebSocket endpoint. The two endpoints are not interchangeable: Test B is public/read-only.</p>
+</section>
 <script>
-(() => {
-  const status = document.getElementById('status');
-  const details = document.getElementById('details');
-  let socket = null, timer = null, opened = false, finished = false;
-  function stopTimer(){ if(timer){clearTimeout(timer);timer=null;} }
-  function cleanup(){stopTimer();if(socket){const s=socket;socket=null;try{s.close();}catch(e){}}}
-  document.getElementById('stop').onclick = () => {
-    finished=true;cleanup();status.textContent='Test stopped.';details.textContent='No trades were placed.';
-  };
-  document.getElementById('test').onclick = () => {
-    cleanup();opened=false;finished=false;
-    status.textContent='Attempting WebSocket handshake…';
-    details.textContent='Waiting up to 12 seconds for the connection to open.';
-    try {
-      socket=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
-      timer=setTimeout(()=>{
-        if(finished)return;
-        finished=true;
-        status.textContent=opened?'CONNECTED, but no ping response arrived within 12 seconds.':'FAILED: connection did not open within 12 seconds.';
-        details.textContent=opened?'The WebSocket opened, but the expected server reply did not arrive.':'The browser did not complete the WebSocket handshake. The exact cause could be endpoint, browser, device settings, or network.';
-        cleanup();
-      },12000);
-      socket.addEventListener('open',()=>{
-        opened=true;status.textContent='WebSocket opened. Sending ping…';
-        details.textContent='Handshake succeeded; waiting for Deriv server response.';
-        try{socket.send(JSON.stringify({ping:1,req_id:731942}));}
-        catch(e){finished=true;status.textContent='Socket opened, but sending ping failed.';details.textContent=String(e);cleanup();}
-      });
-      socket.addEventListener('message',(event)=>{
-        if(finished)return;
-        let data;try{data=JSON.parse(event.data);}catch(e){return;}
-        if(data.error){finished=true;status.textContent='API replied with an error.';details.textContent=(data.error.code||'Error')+': '+(data.error.message||'No message');cleanup();return;}
-        if(data.ping||data.req_id===731942){finished=true;status.textContent='CONNECTED — Deriv replied to the ping.';details.textContent='WebSocket handshake and server response both succeeded. No trades were placed.';cleanup();}
-      });
-      socket.addEventListener('error',()=>{
-        if(finished)return;finished=true;
-        status.textContent=opened?'WebSocket error after opening.':'FAILED: browser reported a WebSocket handshake error.';
-        details.textContent='Browsers hide detailed handshake errors from page scripts, so this test cannot identify the exact cause.';
-        stopTimer();
-      });
-      socket.addEventListener('close',(event)=>{
-        stopTimer();
-        if(!finished){finished=true;status.textContent='Socket closed before the test completed.';details.textContent='Close code: '+event.code+(event.reason?'; reason: '+event.reason:'')+'.';}
-      });
-    }catch(e){finished=true;status.textContent='Could not create WebSocket.';details.textContent=String(e);cleanup();}
-  };
-})();
+const oldUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
+const newUrl = 'wss://api.derivws.com/trading/v1/options/ws/public';
+function setResult(prefix, status, detail, kind) {
+  const s = document.getElementById(prefix + '-status');
+  s.textContent = status;
+  s.className = 'status ' + kind;
+  document.getElementById(prefix + '-detail').textContent = detail;
+}
+function test(prefix, url, sendPing) {
+  setResult(prefix, 'Connecting…', 'Attempting WebSocket handshake. Waiting up to 12 seconds.', 'pending');
+  let ws, finished = false, timer;
+  function finish(status, detail, kind) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    setResult(prefix, status, detail, kind);
+    try { if (ws && ws.readyState < 2) ws.close(); } catch (_) {}
+  }
+  timer = setTimeout(() => finish('TIMEOUT', 'No successful connection within 12 seconds. The page cannot determine the exact cause.', 'bad'), 12000);
+  try {
+    ws = new WebSocket(url);
+    ws.onopen = () => {
+      if (sendPing) {
+        try { ws.send(JSON.stringify({ping: 1, req_id: 731942})); } catch (_) {}
+        finish('CONNECTED', 'WebSocket handshake succeeded. A ping was sent to the legacy endpoint. This is only a connection test; no account was accessed and no trade was placed.', 'ok');
+      } else {
+        finish('CONNECTED', 'WebSocket handshake succeeded on the public endpoint. This endpoint is for public/read-only market data, not account trading.', 'ok');
+      }
+    };
+    ws.onmessage = (event) => {
+      if (!finished) finish('CONNECTED — MESSAGE RECEIVED', 'The endpoint opened and sent a message: ' + String(event.data).slice(0, 1200), 'ok');
+      else if (prefix === 'a') document.getElementById('a-detail').textContent += '\nServer reply: ' + String(event.data).slice(0, 1200);
+      else document.getElementById('b-detail').textContent += '\nServer message: ' + String(event.data).slice(0, 1200);
+    };
+    ws.onerror = () => {
+      if (!finished) finish('HANDSHAKE / CONNECTION ERROR', 'The browser reported a WebSocket error but hides the detailed cause from this page.', 'bad');
+    };
+    ws.onclose = (event) => {
+      if (!finished) finish('CLOSED BEFORE CONNECTING', 'Connection closed before open. Close code: ' + event.code + (event.reason ? '; reason: ' + event.reason : '') + '.', 'bad');
+    };
+  } catch (e) {
+    finish('COULD NOT START', String(e), 'bad');
+  }
+}
+document.getElementById('run').addEventListener('click', () => {
+  test('a', oldUrl, true);
+  test('b', newUrl, false);
+});
 </script>
 </body>
 </html>
