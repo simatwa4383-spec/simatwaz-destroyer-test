@@ -1,41 +1,84 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Simatwaz Destroyer Connection Test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simatwaz Destroyer — Connection Diagnostic</title>
+<style>
+body{font:16px Arial,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;line-height:1.5;color:#17202a}
+button{font-size:16px;padding:12px 16px;border:0;border-radius:8px;background:#1769aa;color:white;margin:4px 4px 4px 0}
+.card{border:1px solid #ddd;border-radius:10px;padding:16px;margin:14px 0}
+#status{font-weight:bold;overflow-wrap:anywhere}
+small{color:#555}
+</style>
 </head>
-<body style="font-family:Arial,sans-serif;padding:20px">
-  <h2>Simatwaz Destroyer</h2>
-  <p>Connection test only — no trades will be placed.</p>
-  <button id="test">Test Deriv connection</button>
-  <p id="status">Waiting to test...</p>
-  <script>
-    document.getElementById('test').onclick = () => {
-      const status = document.getElementById('status');
-      status.textContent = 'Connecting...';
-      let ws;
-      try {
-        ws = new WebSocket(
-          'wss://ws.derivws.com/websockets/v3?app_id=1089'
-        );
-        ws.onopen = () => ws.send(JSON.stringify({ping: 1}));
-        ws.onmessage = e => {
-          const d = JSON.parse(e.data);
-          if (d.ping === 'pong' || d.ping === 1) {
-            status.textContent = 'CONNECTED — ping successful.';
-            ws.close();
-          } else if (d.error) {
-            status.textContent = 'API error: ' + d.error.message;
-          }
-        };
-        ws.onerror = () => {
-          status.textContent = 'Connection failed. Check network or browser.';
-        };
-        ws.onclose = () => {};
-      } catch (e) {
-        status.textContent = 'Error: ' + e.message;
-      }
-    };
-  </script>
+<body>
+<h2>Simatwaz Destroyer</h2>
+<p>Connection diagnostic only. This page does not log in, request an API token, or place trades.</p>
+<div class="card">
+  <p><b>Endpoint:</b> <code>wss://ws.derivws.com/websockets/v3?app_id=1089</code></p>
+  <button id="test">Run connection test</button>
+  <button id="stop" style="background:#555">Stop test</button>
+  <p id="status">Ready. Tap “Run connection test”.</p>
+  <p id="details"><small>No connection attempt has been made yet.</small></p>
+</div>
+<div class="card">
+  <b>How to read the result</b>
+  <ul>
+    <li><b>Connected / ping reply:</b> the browser reached Deriv's WebSocket.</li>
+    <li><b>Handshake error or timeout:</b> the browser could not complete the WebSocket connection; the page cannot reveal the exact cause.</li>
+    <li><b>API error:</b> the server responded but rejected the request.</li>
+  </ul>
+</div>
+<p><small>Uses Deriv's documented test app ID 1089. No account credentials or trading permissions are needed.</small></p>
+<script>
+(() => {
+  const status = document.getElementById('status');
+  const details = document.getElementById('details');
+  let socket = null, timer = null, opened = false, finished = false;
+  function stopTimer(){ if(timer){clearTimeout(timer);timer=null;} }
+  function cleanup(){stopTimer();if(socket){const s=socket;socket=null;try{s.close();}catch(e){}}}
+  document.getElementById('stop').onclick = () => {
+    finished=true;cleanup();status.textContent='Test stopped.';details.textContent='No trades were placed.';
+  };
+  document.getElementById('test').onclick = () => {
+    cleanup();opened=false;finished=false;
+    status.textContent='Attempting WebSocket handshake…';
+    details.textContent='Waiting up to 12 seconds for the connection to open.';
+    try {
+      socket=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+      timer=setTimeout(()=>{
+        if(finished)return;
+        finished=true;
+        status.textContent=opened?'CONNECTED, but no ping response arrived within 12 seconds.':'FAILED: connection did not open within 12 seconds.';
+        details.textContent=opened?'The WebSocket opened, but the expected server reply did not arrive.':'The browser did not complete the WebSocket handshake. The exact cause could be endpoint, browser, device settings, or network.';
+        cleanup();
+      },12000);
+      socket.addEventListener('open',()=>{
+        opened=true;status.textContent='WebSocket opened. Sending ping…';
+        details.textContent='Handshake succeeded; waiting for Deriv server response.';
+        try{socket.send(JSON.stringify({ping:1,req_id:731942}));}
+        catch(e){finished=true;status.textContent='Socket opened, but sending ping failed.';details.textContent=String(e);cleanup();}
+      });
+      socket.addEventListener('message',(event)=>{
+        if(finished)return;
+        let data;try{data=JSON.parse(event.data);}catch(e){return;}
+        if(data.error){finished=true;status.textContent='API replied with an error.';details.textContent=(data.error.code||'Error')+': '+(data.error.message||'No message');cleanup();return;}
+        if(data.ping||data.req_id===731942){finished=true;status.textContent='CONNECTED — Deriv replied to the ping.';details.textContent='WebSocket handshake and server response both succeeded. No trades were placed.';cleanup();}
+      });
+      socket.addEventListener('error',()=>{
+        if(finished)return;finished=true;
+        status.textContent=opened?'WebSocket error after opening.':'FAILED: browser reported a WebSocket handshake error.';
+        details.textContent='Browsers hide detailed handshake errors from page scripts, so this test cannot identify the exact cause.';
+        stopTimer();
+      });
+      socket.addEventListener('close',(event)=>{
+        stopTimer();
+        if(!finished){finished=true;status.textContent='Socket closed before the test completed.';details.textContent='Close code: '+event.code+(event.reason?'; reason: '+event.reason:'')+'.';}
+      });
+    }catch(e){finished=true;status.textContent='Could not create WebSocket.';details.textContent=String(e);cleanup();}
+  };
+})();
+</script>
 </body>
 </html>
