@@ -1,1 +1,41 @@
-
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simatwaz Destroyer Connection Test</title>
+</head>
+<body style="font-family:Arial,sans-serif;padding:20px">
+  <h2>Simatwaz Destroyer</h2>
+  <p>Connection test only — no trades will be placed.</p>
+  <button id="test">Test Deriv connection</button>
+  <p id="status">Waiting to test...</p>
+  <script>
+    document.getElementById('test').onclick = () => {
+      const status = document.getElementById('status');
+      status.textContent = 'Connecting...';
+      let ws;
+      try {
+        ws = new WebSocket(
+          'wss://ws.derivws.com/websockets/v3?app_id=1089'
+        );
+        ws.onopen = () => ws.send(JSON.stringify({ping: 1}));
+        ws.onmessage = e => {
+          const d = JSON.parse(e.data);
+          if (d.ping === 'pong' || d.ping === 1) {
+            status.textContent = 'CONNECTED — ping successful.';
+            ws.close();
+          } else if (d.error) {
+            status.textContent = 'API error: ' + d.error.message;
+          }
+        };
+        ws.onerror = () => {
+          status.textContent = 'Connection failed. Check network or browser.';
+        };
+        ws.onclose = () => {};
+      } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
